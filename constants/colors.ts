@@ -1,0 +1,22 @@
+export default {
+    background: '#0A0E27',
+    backgroundSecondary: '#121630',
+    card: '#1A1F3A',
+    cardLight: '#242945',
+    primary: '#6366F1',
+    primaryLight: '#818CF8',
+    primaryDark: '#4F46E5',
+    secondary: '#8B5CF6',
+    secondaryLight: '#A78BFA',
+    accent: '#EC4899',
+    text: '#F8FAFC',
+    textSecondary: '#94A3B8',
+    textTertiary: '#64748B',
+    success: '#10B981',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    border: '#1E293B',
+    tabIconDefault: '#64748B',
+    tabIconSelected: '#818CF8',
+  };
+  
