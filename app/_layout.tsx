@@ -15,7 +15,12 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack 
+      screenOptions={{ 
+        headerBackTitle: "Back",
+        contentStyle: { backgroundColor: Colors.background },
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
@@ -32,7 +37,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SleepProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background }}>
           <RootLayoutNav />
           {showSplash && (
             <AnimatedSplash onFinish={() => setShowSplash(false)} />

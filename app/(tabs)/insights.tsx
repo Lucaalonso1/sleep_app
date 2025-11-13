@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSleep } from '../../contexts/SleepContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import AnimatedTabScreen from '../../components/AnimatedTabScreen';
 import Colors from '../../constants/colors';
 import { formatDuration } from '../../lib/utils';
 
@@ -110,37 +111,42 @@ export default function InsightsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+      <AnimatedTabScreen routeName="/insights">
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </AnimatedTabScreen>
     );
   }
 
   if (sessions.length === 0) {
     return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={[Colors.background, Colors.backgroundSecondary]}
-          style={styles.gradient}
-        >
-          <View style={[styles.emptyState, { paddingTop: insets.top }]}>
-            <TrendingUp size={64} color={Colors.textTertiary} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>
-              Sin datos aún
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              Comienza a rastrear tu sueño para ver estadísticas y tendencias
-            </Text>
-          </View>
-        </LinearGradient>
-      </View>
+      <AnimatedTabScreen routeName="/insights">
+        <View style={styles.container}>
+          <LinearGradient
+            colors={[Colors.background, Colors.backgroundSecondary]}
+            style={styles.gradient}
+          >
+            <View style={[styles.emptyState, { paddingTop: insets.top }]}>
+              <TrendingUp size={64} color={Colors.textTertiary} strokeWidth={1.5} />
+              <Text style={styles.emptyTitle}>
+                Sin datos aún
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                Comienza a rastrear tu sueño para ver estadísticas y tendencias
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+      </AnimatedTabScreen>
     );
   }
 
   const maxDuration = Math.max(...chartData.map(s => s.duration || 0), 28800);
 
   return (
-    <View style={styles.container}>
+    <AnimatedTabScreen routeName="/insights">
+      <View style={styles.container}>
       <LinearGradient
         colors={[Colors.background, Colors.backgroundSecondary]}
         style={styles.gradient}
@@ -369,6 +375,7 @@ export default function InsightsScreen() {
         </ScrollView>
       </LinearGradient>
     </View>
+    </AnimatedTabScreen>
   );
 }
 

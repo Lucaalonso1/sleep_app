@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSleep } from '../../contexts/SleepContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import AnimatedTabScreen from '../../components/AnimatedTabScreen';
 import Colors from '../../constants/colors';
 import { formatDate, formatTime, formatDuration } from '../../lib/utils';
 
@@ -106,14 +107,17 @@ export default function HistoryScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+      <AnimatedTabScreen routeName="/history">
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </AnimatedTabScreen>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <AnimatedTabScreen routeName="/history">
+      <View style={styles.container}>
       <LinearGradient
         colors={[Colors.background, Colors.backgroundSecondary]}
         style={styles.gradient}
@@ -291,7 +295,7 @@ export default function HistoryScreen() {
                           </Text>
                         </View>
                         <View style={styles.recordingsList}>
-                          {session.audioRecordings.map((recording) => (
+                          {session.audioRecordings.map((recording: any) => (
                             <Pressable
                               key={recording.id}
                               onPress={() => playAudio(recording.uri, recording.id)}
@@ -332,6 +336,7 @@ export default function HistoryScreen() {
         </ScrollView>
       </LinearGradient>
     </View>
+    </AnimatedTabScreen>
   );
 }
 

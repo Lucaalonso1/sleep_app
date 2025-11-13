@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AnimatedTabScreen from '../../components/AnimatedTabScreen';
 import Colors from '../../constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -162,11 +163,12 @@ export default function SoundsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.background, Colors.backgroundSecondary, Colors.backgroundTertiary]}
-        style={styles.gradient}
-      >
+    <AnimatedTabScreen routeName="/sounds">
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.background, Colors.backgroundSecondary, Colors.backgroundTertiary]}
+          style={styles.gradient}
+        >
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
@@ -308,6 +310,7 @@ export default function SoundsScreen() {
         </ScrollView>
       </LinearGradient>
     </View>
+    </AnimatedTabScreen>
   );
 }
 

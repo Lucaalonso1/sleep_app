@@ -6,6 +6,7 @@ import { Moon, Sun, Clock, Bell, Plus, X, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSleep } from '../../contexts/SleepContext';
+import AnimatedTabScreen from '../../components/AnimatedTabScreen';
 import Colors from '../../constants/colors';
 import { formatTime, formatDuration } from '../../lib/utils';
 
@@ -97,11 +98,12 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.background, Colors.backgroundSecondary, Colors.backgroundTertiary]}
-        style={styles.gradient}
-      >
+    <AnimatedTabScreen routeName="/">
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.background, Colors.backgroundSecondary, Colors.backgroundTertiary]}
+          style={styles.gradient}
+        >
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
@@ -368,6 +370,7 @@ export default function HomeScreen() {
         </Modal>
       )}
     </View>
+    </AnimatedTabScreen>
   );
 }
 

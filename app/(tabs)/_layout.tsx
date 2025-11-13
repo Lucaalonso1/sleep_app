@@ -11,6 +11,10 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.tabIconSelected,
         tabBarInactiveTintColor: Colors.tabIconDefault,
         headerShown: false,
+        // Color de fondo para las pantallas
+        sceneStyle: {
+          backgroundColor: Colors.background,
+        },
         tabBarStyle: {
           backgroundColor: Colors.tabBackground,
           borderTopColor: Colors.tabBorder,
@@ -29,6 +33,12 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingVertical: 4,
         },
+        // Animaciones de transición
+        animation: 'shift',
+        // Para iOS
+        ...(Platform.OS === 'ios' && {
+          presentation: 'transparentModal',
+        }),
       }}
     >
       <Tabs.Screen
