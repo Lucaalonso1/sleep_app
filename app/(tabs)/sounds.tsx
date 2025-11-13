@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   ScrollView,
   TouchableOpacity,
   Dimensions,
   Platform,
+  Pressable,
+  StyleSheet,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
@@ -19,6 +20,7 @@ import {
   VolumeX,
   Play,
   Pause,
+  Sparkles,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,7 +40,7 @@ interface SoundOption {
 const SOUNDS: SoundOption[] = [
   {
     id: 'ocean',
-    name: 'Ocean Waves',
+    name: 'Olas del océano',
     icon: Waves,
     color: '#3B82F6',
     gradient: ['#3B82F6', '#2563EB'],
@@ -46,7 +48,7 @@ const SOUNDS: SoundOption[] = [
   },
   {
     id: 'rain',
-    name: 'Rain',
+    name: 'Lluvia',
     icon: CloudRain,
     color: '#6366F1',
     gradient: ['#6366F1', '#4F46E5'],
@@ -54,7 +56,7 @@ const SOUNDS: SoundOption[] = [
   },
   {
     id: 'wind',
-    name: 'Wind',
+    name: 'Viento',
     icon: Wind,
     color: '#10B981',
     gradient: ['#10B981', '#059669'],
@@ -62,7 +64,7 @@ const SOUNDS: SoundOption[] = [
   },
   {
     id: 'nature',
-    name: 'Nature',
+    name: 'Naturaleza',
     icon: Music,
     color: '#F59E0B',
     gradient: ['#F59E0B', '#D97706'],
@@ -150,6 +152,9 @@ export default function SoundsScreen() {
   };
 
   const adjustVolume = async (newVolume: number) => {
+    if (Platform.OS !== 'web') {
+      await Haptics.selectionAsync();
+    }
     setVolume(newVolume);
     if (sound && !isMuted) {
       await sound.setVolumeAsync(newVolume);
@@ -159,70 +164,76 @@ export default function SoundsScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[Colors.background, Colors.backgroundSecondary, Colors.background]}
+        colors={[Colors.background, Colors.backgroundSecondary, Colors.backgroundTertiary]}
         style={styles.gradient}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 10 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Ambient Sounds</Text>
+            <View style={styles.headerTitle}>
+              <Sparkles size={24} color={Colors.accent} />
+              <Text style={styles.title}>Sonidos ambientales</Text>
+            </View>
             <Text style={styles.subtitle}>
-              Relax with soothing sounds to help you fall asleep
+              Relájate con sonidos relajantes para ayudarte a dormir
             </Text>
           </View>
 
+          {/* Sounds Grid */}
           <View style={styles.soundsGrid}>
             {SOUNDS.map((soundOption) => {
               const Icon = soundOption.icon;
               const isPlaying = playingId === soundOption.id;
 
               return (
-                <TouchableOpacity
+                <Pressable
                   key={soundOption.id}
+                  onPress={() => playSound(soundOption)}
                   style={[
                     styles.soundCard,
-                    isPlaying && styles.soundCardActive,
+                    { width: (width - 52) / 2 },
+                    isPlaying && styles.soundCardPlaying
                   ]}
-                  onPress={() => playSound(soundOption)}
-                  activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={isPlaying ? soundOption.gradient : [Colors.card, Colors.cardLight]}
-                    style={styles.soundGradient}
+                    colors={isPlaying ? soundOption.gradient as any : [Colors.card, Colors.cardLight]}
+                    style={styles.soundCardGradient}
                   >
-                    <View style={[
-                      styles.iconContainer,
-                      isPlaying && styles.iconContainerActive,
-                    ]}>
+                    <View style={[styles.soundIcon, isPlaying && styles.soundIconPlaying]}>
                       <Icon
-                        size={32}
+                        size={36}
                         color={isPlaying ? '#FFF' : soundOption.color}
                         strokeWidth={1.5}
                       />
                     </View>
                     
-                    <Text style={[
-                      styles.soundName,
-                      isPlaying && styles.soundNameActive,
-                    ]}>
+                    <Text style={[styles.soundName, isPlaying && styles.soundNamePlaying]}>
                       {soundOption.name}
                     </Text>
                     
-                    <View style={styles.playButton}>
+                    <View style={styles.soundStatus}>
                       {isPlaying ? (
-                        <Pause size={16} color={isPlaying ? '#FFF' : Colors.text} fill={isPlaying ? '#FFF' : 'transparent'} />
+                        <>
+                          <Pause size={14} color="#FFF" fill="#FFF" />
+                          <Text style={styles.soundStatusTextPlaying}>Reproduciendo</Text>
+                        </>
                       ) : (
-                        <Play size={16} color={Colors.textSecondary} />
+                        <>
+                          <Play size={14} color={Colors.textSecondary} />
+                          <Text style={styles.soundStatusText}>Reproducir</Text>
+                        </>
                       )}
                     </View>
                   </LinearGradient>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
 
+          {/* Playback Controls */}
           {playingId && (
             <View style={styles.controlsCard}>
               <LinearGradient
@@ -230,8 +241,11 @@ export default function SoundsScreen() {
                 style={styles.controlsGradient}
               >
                 <View style={styles.controlsHeader}>
-                  <Text style={styles.controlsTitle}>Playback Controls</Text>
-                  <TouchableOpacity onPress={toggleMute} style={styles.muteButton}>
+                  <Text style={styles.controlsTitle}>Controles de reproducción</Text>
+                  <TouchableOpacity 
+                    onPress={toggleMute} 
+                    style={styles.muteButton}
+                  >
                     {isMuted ? (
                       <VolumeX size={24} color={Colors.error} />
                     ) : (
@@ -240,50 +254,54 @@ export default function SoundsScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.volumeControl}>
-                  <Text style={styles.volumeLabel}>Volume</Text>
-                  <View style={styles.volumeSliderContainer}>
-                    <View style={styles.volumeTrack}>
-                      <View
+                <View style={styles.volumeSection}>
+                  <Text style={styles.volumeLabel}>Volumen</Text>
+                  
+                  {/* Volume Bar */}
+                  <View style={styles.volumeBar}>
+                    <View
+                      style={[styles.volumeFill, { width: `${volume * 100}%` }]}
+                    />
+                  </View>
+
+                  {/* Volume Marks */}
+                  <View style={styles.volumeMarks}>
+                    {[0, 0.25, 0.5, 0.75, 1].map((mark) => (
+                      <TouchableOpacity
+                        key={mark}
+                        onPress={() => adjustVolume(mark)}
                         style={[
-                          styles.volumeFill,
-                          { width: `${volume * 100}%` },
+                          styles.volumeMark,
+                          Math.abs(volume - mark) < 0.1 && styles.volumeMarkActive
                         ]}
                       />
-                    </View>
-                    <View style={styles.volumeMarks}>
-                      {[0, 0.25, 0.5, 0.75, 1].map((mark) => (
-                        <TouchableOpacity
-                          key={mark}
-                          style={[
-                            styles.volumeMark,
-                            Math.abs(volume - mark) < 0.1 && styles.volumeMarkActive,
-                          ]}
-                          onPress={() => adjustVolume(mark)}
-                        />
-                      ))}
-                    </View>
+                    ))}
                   </View>
+                  
                   <View style={styles.volumeLabels}>
-                    <Text style={styles.volumeValue}>0%</Text>
-                    <Text style={styles.volumeValue}>100%</Text>
+                    <Text style={styles.volumeLabelText}>0%</Text>
+                    <Text style={styles.volumeLabelText}>100%</Text>
                   </View>
                 </View>
               </LinearGradient>
             </View>
           )}
 
+          {/* Tips Card */}
           <View style={styles.tipsCard}>
             <LinearGradient
-              colors={[Colors.primary, Colors.secondary]}
+              colors={[Colors.gradientStart, Colors.gradientMiddle, Colors.gradientEnd]}
               style={styles.tipsGradient}
             >
-              <Text style={styles.tipsTitle}>💡 Pro Tips</Text>
+              <View style={styles.tipsHeader}>
+                <Sparkles size={20} color="#FFF" />
+                <Text style={styles.tipsTitle}>Consejos Pro</Text>
+              </View>
               <Text style={styles.tipsText}>
-                • Ambient sounds can help mask disruptive noises{'\n'}
-                • Play sounds 20-30 minutes before bed{'\n'}
-                • Lower volume creates a more subtle effect{'\n'}
-                • Combine with breathing exercises for best results
+                • Los sonidos ambientales ayudan a enmascarar ruidos molestos{'\n'}
+                • Reproduce sonidos 20-30 minutos antes de dormir{'\n'}
+                • Un volumen más bajo crea un efecto más sutil{'\n'}
+                • Combínalos con ejercicios de respiración para mejores resultados
               </Text>
             </LinearGradient>
           </View>
@@ -302,24 +320,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 30,
+    marginBottom: 32,
     alignItems: 'center',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700' as const,
-    color: Colors.text,
+  headerTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: Colors.text,
+  },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 20,
   },
   soundsGrid: {
     flexDirection: 'row',
@@ -328,49 +350,56 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   soundCard: {
-    width: (width - 52) / 2,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 2,
+    borderColor: Colors.border,
   },
-  soundCardActive: {
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+  soundCardPlaying: {
+    borderColor: Colors.primary,
   },
-  soundGradient: {
+  soundCardGradient: {
     padding: 20,
     alignItems: 'center',
-    gap: 12,
-    minHeight: 160,
+    justifyContent: 'center',
+    minHeight: 180,
   },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.backgroundSecondary,
+  soundIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+    backgroundColor: Colors.card,
   },
-  iconContainerActive: {
+  soundIconPlaying: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   soundName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.text,
     textAlign: 'center',
+    marginBottom: 8,
   },
-  soundNameActive: {
-    color: '#FFF',
+  soundNamePlaying: {
+    color: '#FFFFFF',
   },
-  playButton: {
-    marginTop: 4,
+  soundStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  soundStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  soundStatusTextPlaying: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   controlsCard: {
     borderRadius: 20,
@@ -381,6 +410,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   controlsGradient: {
     padding: 20,
@@ -393,26 +424,25 @@ const styles = StyleSheet.create({
   },
   controlsTitle: {
     fontSize: 18,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     color: Colors.text,
   },
   muteButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.card,
   },
-  volumeControl: {
+  volumeSection: {
     gap: 12,
   },
   volumeLabel: {
     fontSize: 14,
-    fontWeight: '600' as const,
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
-  volumeSliderContainer: {
-    position: 'relative',
-  },
-  volumeTrack: {
+  volumeBar: {
     height: 8,
-    backgroundColor: Colors.backgroundSecondary,
+    backgroundColor: Colors.card,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -433,13 +463,13 @@ const styles = StyleSheet.create({
   },
   volumeMarkActive: {
     backgroundColor: Colors.primary,
-    transform: [{ scale: 1.3 }],
+    transform: [{ scale: 1.25 }],
   },
   volumeLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  volumeValue: {
+  volumeLabelText: {
     fontSize: 12,
     color: Colors.textTertiary,
   },
@@ -455,16 +485,21 @@ const styles = StyleSheet.create({
   tipsGradient: {
     padding: 24,
   },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   tipsTitle: {
     fontSize: 20,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     color: '#FFF',
-    marginBottom: 12,
   },
   tipsText: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 22,
+    lineHeight: 24,
     opacity: 0.95,
   },
 });

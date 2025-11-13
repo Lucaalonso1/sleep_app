@@ -1,18 +1,21 @@
 import { useState, useMemo } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   ScrollView,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, Award, Moon, Sun, Brain, Zap } from 'lucide-react-native';
+import { TrendingUp, Award, Moon, Sun, Brain, Zap, Sparkles, BarChart3 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSleep } from '../../contexts/SleepContext';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
 import Colors from '../../constants/colors';
+import { formatDuration } from '../../lib/utils';
 
 const { width } = Dimensions.get('window');
 
@@ -104,15 +107,9 @@ export default function InsightsScreen() {
     return filteredSessions.slice(0, 7).reverse();
   }, [sessions, timeRange]);
 
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
-
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View >
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -120,16 +117,18 @@ export default function InsightsScreen() {
 
   if (sessions.length === 0) {
     return (
-      <View style={styles.container}>
+      <View >
         <LinearGradient
           colors={[Colors.background, Colors.backgroundSecondary]}
-          style={styles.gradient}
+          
         >
-          <View style={[styles.emptyState, { paddingTop: insets.top }]}>
+          <View  style={{ paddingTop: insets.top }}>
             <TrendingUp size={64} color={Colors.textTertiary} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No Data Yet</Text>
-            <Text style={styles.emptySubtitle}>
-              Start tracking your sleep to see insights and trends
+            <Text >
+              Sin datos aún
+            </Text>
+            <Text >
+              Comienza a rastrear tu sueño para ver estadísticas y tendencias
             </Text>
           </View>
         </LinearGradient>
@@ -140,370 +139,236 @@ export default function InsightsScreen() {
   const maxDuration = Math.max(...chartData.map(s => s.duration || 0), 28800);
 
   return (
-    <View style={styles.container}>
+    <View >
       <LinearGradient
         colors={[Colors.background, Colors.backgroundSecondary]}
-        style={styles.gradient}
+        
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 10 }]}
+          contentContainerStyle={{ 
+            paddingTop: insets.top + 16, 
+            paddingHorizontal: 20, 
+            paddingBottom: 40 
+          }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>Sleep Insights</Text>
-            <Text style={styles.subtitle}>Track your progress and patterns</Text>
+          {/* Header */}
+          <View >
+            <View >
+              <Sparkles size={24} color={Colors.accent} />
+              <Text >Análisis de sueño</Text>
+            </View>
+            <Text >
+              Rastrea tu progreso y patrones
+            </Text>
           </View>
 
-          <View style={styles.timeRangeSelector}>
+          {/* Time Range Selector */}
+          <View >
             {(['week', 'month', 'all'] as const).map((range) => (
-              <TouchableOpacity
+              <Pressable
                 key={range}
-                style={[
-                  styles.rangeButton,
-                  timeRange === range && styles.rangeButtonActive,
-                ]}
                 onPress={() => setTimeRange(range)}
+                className={`flex-1 py-3 px-4 rounded-2xl ${
+                  timeRange === range ? 'bg-primary' : 'bg-card'
+                }`}
               >
-                <Text
-                  style={[
-                    styles.rangeButtonText,
-                    timeRange === range && styles.rangeButtonTextActive,
-                  ]}
-                >
-                  {range === 'week' ? '7 Days' : range === 'month' ? '30 Days' : 'All Time'}
+                <Text className={`text-sm font-bold text-center ${
+                  timeRange === range ? 'text-white' : 'text-muted-foreground'
+                }`}>
+                  {range === 'week' ? '7 Días' : range === 'month' ? '30 Días' : 'Todo'}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+          {/* Stats Grid */}
+          <View >
+            <View 
+              
+              style={{ width: (width - 52) / 2 }}
+            >
               <LinearGradient
-                colors={[Colors.primary, Colors.secondary]}
-                style={styles.statGradient}
+                colors={[Colors.primary, Colors.primaryDark]}
+                
               >
-                <Moon size={24} color="#FFF" />
-                <Text style={styles.statValue}>{stats.totalSessions}</Text>
-                <Text style={styles.statLabel}>Sleep Sessions</Text>
+                <Moon size={28} color="#FFF" />
+                <Text >
+                  {stats.totalSessions}
+                </Text>
+                <Text >
+                  Sesiones
+                </Text>
               </LinearGradient>
             </View>
 
-            <View style={styles.statCard}>
+            <View 
+              
+              style={{ width: (width - 52) / 2 }}
+            >
               <LinearGradient
-                colors={[Colors.accent, '#F59E0B']}
-                style={styles.statGradient}
+                colors={[Colors.accent, Colors.accentDark]}
+                
               >
-                <Award size={24} color="#FFF" />
-                <Text style={styles.statValue}>{Math.round(stats.averageQuality)}</Text>
-                <Text style={styles.statLabel}>Avg Quality</Text>
+                <Award size={28} color="#FFF" />
+                <Text >
+                  {Math.round(stats.averageQuality)}
+                </Text>
+                <Text >
+                  Calidad promedio
+                </Text>
               </LinearGradient>
             </View>
 
-            <View style={styles.statCard}>
+            <View 
+              
+              style={{ width: (width - 52) / 2 }}
+            >
               <LinearGradient
-                colors={['#8B5CF6', '#6366F1']}
-                style={styles.statGradient}
+                colors={['#8B5CF6', '#7C3AED']}
+                
               >
-                <Zap size={24} color="#FFF" />
-                <Text style={styles.statValue}>{stats.bestStreak}</Text>
-                <Text style={styles.statLabel}>Best Streak</Text>
+                <Zap size={28} color="#FFF" />
+                <Text >
+                  {stats.bestStreak}
+                </Text>
+                <Text >
+                  Mejor racha
+                </Text>
               </LinearGradient>
             </View>
 
-            <View style={styles.statCard}>
+            <View 
+              
+              style={{ width: (width - 52) / 2 }}
+            >
               <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.statGradient}
+                colors={[Colors.success, Colors.successDark]}
+                
               >
-                <Sun size={24} color="#FFF" />
-                <Text style={styles.statValue}>{formatDuration(stats.averageDuration)}</Text>
-                <Text style={styles.statLabel}>Avg Sleep</Text>
+                <Sun size={28} color="#FFF" />
+                <Text >
+                  {formatDuration(stats.averageDuration)}
+                </Text>
+                <Text >
+                  Promedio
+                </Text>
               </LinearGradient>
             </View>
           </View>
 
-          <View style={styles.chartCard}>
-            <LinearGradient
-              colors={[Colors.card, Colors.cardLight]}
-              style={styles.chartGradient}
-            >
-              <View style={styles.chartHeader}>
-                <Brain size={20} color={Colors.primaryLight} />
-                <Text style={styles.chartTitle}>Sleep Duration Trend</Text>
+          {/* Chart Card */}
+          <Card >
+            <CardHeader>
+              <View >
+                <BarChart3 size={20} color={Colors.primaryLight} />
+                <CardTitle >Tendencia de duración</CardTitle>
               </View>
-              
+            </CardHeader>
+            <CardContent>
               {chartData.length > 0 ? (
-                <View style={styles.chart}>
+                <View >
                   {chartData.map((session, index) => {
                     const barHeight = ((session.duration || 0) / maxDuration) * 150;
                     const quality = session.sleepQuality || 70;
-                    const barColor = quality >= 80 ? '#10B981' : quality >= 60 ? Colors.accent : '#EF4444';
+                    const barColor = quality >= 80 
+                      ? Colors.success 
+                      : quality >= 60 
+                      ? Colors.accent 
+                      : Colors.error;
                     
                     return (
-                      <View key={session.id} style={styles.barContainer}>
-                        <View style={[styles.bar, { height: barHeight, backgroundColor: barColor }]}>
-                          <Text style={styles.barLabel}>{formatDuration(session.duration || 0).split(' ')[0]}</Text>
+                      <View key={session.id} >
+                        <View 
+                          
+                          style={{ 
+                            height: Math.max(barHeight, 20), 
+                            backgroundColor: barColor 
+                          }}
+                        >
+                          <Text >
+                            {formatDuration(session.duration || 0).split(' ')[0]}
+                          </Text>
                         </View>
-                        <Text style={styles.barDate}>
-                          {session.startTime.toLocaleDateString([], { month: 'short', day: 'numeric' }).split(' ')[1]}
+                        <Text >
+                          {session.startTime.toLocaleDateString([], { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          }).split(' ')[1]}
                         </Text>
                       </View>
                     );
                   })}
                 </View>
               ) : (
-                <Text style={styles.noDataText}>Not enough data to display chart</Text>
+                <Text >
+                  No hay suficientes datos para mostrar el gráfico
+                </Text>
               )}
-            </LinearGradient>
-          </View>
+            </CardContent>
+          </Card>
 
-          <View style={styles.detailsCard}>
-            <LinearGradient
-              colors={[Colors.card, Colors.cardLight]}
-              style={styles.detailsGradient}
-            >
-              <Text style={styles.detailsTitle}>Sleep Patterns</Text>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Average Bedtime</Text>
-                <Text style={styles.detailValue}>{stats.avgSleepTime}</Text>
-              </View>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Average Wake Time</Text>
-                <Text style={styles.detailValue}>{stats.avgWakeTime}</Text>
-              </View>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Total Recordings</Text>
-                <Text style={styles.detailValue}>{stats.totalRecordings}</Text>
-              </View>
-              
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Quality Score</Text>
-                <View style={styles.qualityBadge}>
-                  <Text style={styles.qualityText}>
-                    {stats.averageQuality >= 80 ? 'Excellent' : stats.averageQuality >= 60 ? 'Good' : 'Fair'}
+          {/* Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle >Patrones de sueño</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <View >
+                <View >
+                  <Text >
+                    Hora promedio de dormir
+                  </Text>
+                  <Text >
+                    {stats.avgSleepTime}
                   </Text>
                 </View>
+                
+                <View >
+                  <Text >
+                    Hora promedio de despertar
+                  </Text>
+                  <Text >
+                    {stats.avgWakeTime}
+                  </Text>
+                </View>
+                
+                <View >
+                  <Text >
+                    Total de grabaciones
+                  </Text>
+                  <Text >
+                    {stats.totalRecordings}
+                  </Text>
+                </View>
+                
+                <View >
+                  <Text >
+                    Puntuación de calidad
+                  </Text>
+                  <Badge 
+                    variant={
+                      stats.averageQuality >= 80 
+                        ? 'success' 
+                        : stats.averageQuality >= 60 
+                        ? 'warning' 
+                        : 'destructive'
+                    }
+                  >
+                    <Text >
+                      {stats.averageQuality >= 80 
+                        ? 'Excelente' 
+                        : stats.averageQuality >= 60 
+                        ? 'Bueno' 
+                        : 'Regular'}
+                    </Text>
+                  </Badge>
+                </View>
               </View>
-            </LinearGradient>
-          </View>
+            </CardContent>
+          </Card>
         </ScrollView>
       </LinearGradient>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gradient: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
-  timeRangeSelector: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
-  },
-  rangeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-  },
-  rangeButtonActive: {
-    backgroundColor: Colors.primary,
-  },
-  rangeButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.textSecondary,
-  },
-  rangeButtonTextActive: {
-    color: '#FFF',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    width: (width - 52) / 2,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statGradient: {
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: '#FFF',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#FFF',
-    opacity: 0.9,
-    fontWeight: '600' as const,
-  },
-  chartCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  chartGradient: {
-    padding: 20,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text,
-  },
-  chart: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 180,
-    paddingTop: 20,
-  },
-  barContainer: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 8,
-  },
-  bar: {
-    width: 32,
-    borderRadius: 8,
-    minHeight: 20,
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-  },
-  barLabel: {
-    fontSize: 9,
-    fontWeight: '600' as const,
-    color: '#FFF',
-    textAlign: 'center',
-  },
-  barDate: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '500' as const,
-  },
-  noDataText: {
-    textAlign: 'center',
-    color: Colors.textSecondary,
-    fontSize: 14,
-    paddingVertical: 40,
-  },
-  detailsCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  detailsGradient: {
-    padding: 20,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
-  detailValue: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-  qualityBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-  },
-  qualityText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#FFF',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: Colors.text,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-});
