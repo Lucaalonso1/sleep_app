@@ -15,8 +15,15 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
+
+// Configuración de detección de ruido
+const NOISE_THRESHOLD = -45; // dB - ajustable según necesidad
+const RECORDING_DURATION = 15000; // 15 segundos de grabación por ruido
+const MONITORING_INTERVAL = 100; // Verificar cada 100ms
 
 export const [SleepProvider, useSleep] = createContextHook(() => {
   const [sessions, setSessions] = useState<SleepSession[]>([]);
@@ -25,6 +32,10 @@ export const [SleepProvider, useSleep] = createContextHook(() => {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [isRecordingNoise, setIsRecordingNoise] = useState(false);
+  const monitoringIntervalRef = useState<NodeJS.Timeout | null>(null)[0];
 
   useEffect(() => {
     loadSessions();
@@ -88,49 +99,97 @@ export const [SleepProvider, useSleep] = createContextHook(() => {
     return options;
   }, []);
 
-  const startMonitoringAudio = async () => {
-    try {
-      if (Platform.OS === 'web') {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
-        const chunks: Blob[] = [];
+  // Función para detectar ruido y grabar (Web)
+  const monitorNoiseWeb = async (stream: MediaStream, context: AudioContext) => {
+    const analyser = context.createAnalyser();
+    const microphone = context.createMediaStreamSource(stream);
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.8;
+    microphone.connect(analyser);
 
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            chunks.push(e.data);
-          }
-        };
+    const checkNoise = () => {
+      if (!isTracking) return;
 
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64 = reader.result as string;
-            if (currentSession) {
-              const newRecording: AudioRecording = {
-                id: Date.now().toString(),
-                timestamp: new Date(),
-                uri: base64,
-                duration: 0,
-              };
-              setCurrentSession({
-                ...currentSession,
-                audioRecordings: [...currentSession.audioRecordings, newRecording],
-              });
-            }
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+      const noiseLevel = 20 * Math.log10(average / 255); // Convertir a dB
+
+      if (noiseLevel > NOISE_THRESHOLD && !isRecordingNoise) {
+        console.log('Ruido detectado:', noiseLevel, 'dB');
+        startNoiseRecording(stream, noiseLevel);
+      }
+    };
+
+    const interval = setInterval(checkNoise, MONITORING_INTERVAL);
+    return interval;
+  };
+
+  // Grabar fragmento de ruido (Web)
+  const startNoiseRecording = async (stream: MediaStream, noiseLevel: number) => {
+    if (isRecordingNoise || !currentSession) return;
+    
+    setIsRecordingNoise(true);
+    const recorder = new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    recorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        if (currentSession) {
+          const newRecording: AudioRecording = {
+            id: Date.now().toString(),
+            timestamp: new Date(),
+            uri: base64,
+            duration: RECORDING_DURATION / 1000,
+            noiseLevel,
           };
-          reader.readAsDataURL(blob);
-        };
+          
+          // Actualizar la sesión con la nueva grabación
+          setCurrentSession((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              audioRecordings: [...prev.audioRecordings, newRecording],
+            };
+          });
+        }
+        setIsRecordingNoise(false);
+      };
+      reader.readAsDataURL(blob);
+    };
 
-        recorder.start();
-        setMediaRecorder(recorder);
-      } else {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-        });
+    recorder.start();
+    
+    // Detener después del tiempo definido
+    setTimeout(() => {
+      if (recorder.state === 'recording') {
+        recorder.stop();
+      }
+    }, RECORDING_DURATION);
+  };
 
-        const { recording: newRecording } = await Audio.Recording.createAsync({
+  // Detectar y grabar ruido en móvil
+  const monitorNoiseMobile = async () => {
+    if (!isTracking) return;
+
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        {
           android: {
             extension: '.m4a',
             outputFormat: Audio.AndroidOutputFormat.MPEG_4,
@@ -140,20 +199,135 @@ export const [SleepProvider, useSleep] = createContextHook(() => {
             bitRate: 128000,
           },
           ios: {
-            extension: '.wav',
-            outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+            extension: '.m4a',
+            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
             audioQuality: Audio.IOSAudioQuality.HIGH,
             sampleRate: 44100,
             numberOfChannels: 2,
             bitRate: 128000,
-            linearPCMBitDepth: 16,
-            linearPCMIsBigEndian: false,
-            linearPCMIsFloat: false,
           },
           web: {},
-        });
+        },
+        undefined,
+        MONITORING_INTERVAL
+      );
 
-        setRecording(newRecording);
+      setRecording(newRecording);
+
+      // Monitorear el nivel de audio
+      const interval = setInterval(async () => {
+        if (!isTracking || isRecordingNoise) return;
+
+        try {
+          const status = await newRecording.getStatusAsync();
+          if (status.isRecording && status.metering !== undefined) {
+            const noiseLevel = status.metering;
+            
+            // Si detecta ruido, guardar fragmento
+            if (noiseLevel > NOISE_THRESHOLD) {
+              console.log('Ruido detectado:', noiseLevel, 'dB');
+              await captureNoiseFragmentMobile(noiseLevel);
+            }
+          }
+        } catch (error) {
+          console.error('Error monitoring noise:', error);
+        }
+      }, MONITORING_INTERVAL);
+
+      return interval;
+    } catch (error) {
+      console.error('Failed to start noise monitoring:', error);
+    }
+  };
+
+  // Capturar fragmento de ruido en móvil
+  const captureNoiseFragmentMobile = async (noiseLevel: number) => {
+    if (isRecordingNoise || !currentSession) return;
+
+    setIsRecordingNoise(true);
+
+    try {
+      // Crear una nueva grabación específica para este ruido
+      const { recording: noiseRecording } = await Audio.Recording.createAsync({
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: '.m4a',
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        web: {},
+      });
+
+      // Grabar durante el tiempo definido
+      setTimeout(async () => {
+        try {
+          await noiseRecording.stopAndUnloadAsync();
+          const uri = noiseRecording.getURI();
+          const status = await noiseRecording.getStatusAsync();
+
+          if (uri && currentSession) {
+            const newRecording: AudioRecording = {
+              id: Date.now().toString(),
+              timestamp: new Date(),
+              uri,
+              duration: (status as any).durationMillis ? (status as any).durationMillis / 1000 : 0,
+              noiseLevel,
+            };
+
+            setCurrentSession((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                audioRecordings: [...prev.audioRecordings, newRecording],
+              };
+            });
+          }
+        } catch (error) {
+          console.error('Error saving noise fragment:', error);
+        } finally {
+          setIsRecordingNoise(false);
+        }
+      }, RECORDING_DURATION);
+    } catch (error) {
+      console.error('Error capturing noise fragment:', error);
+      setIsRecordingNoise(false);
+    }
+  };
+
+  const startMonitoringAudio = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false, // Queremos detectar ruido
+            autoGainControl: false,
+          } 
+        });
+        
+        const context = new AudioContext();
+        setAudioStream(stream);
+        setAudioContext(context);
+
+        const interval = await monitorNoiseWeb(stream, context);
+        if (interval) {
+          (monitoringIntervalRef as any) = interval;
+        }
+      } else {
+        const interval = await monitorNoiseMobile();
+        if (interval) {
+          (monitoringIntervalRef as any) = interval;
+        }
       }
     } catch (error) {
       console.error('Failed to start audio monitoring:', error);
@@ -162,36 +336,42 @@ export const [SleepProvider, useSleep] = createContextHook(() => {
 
   const stopMonitoringAudio = async () => {
     try {
+      // Limpiar intervalo de monitoreo
+      if ((monitoringIntervalRef as any)) {
+        clearInterval((monitoringIntervalRef as any));
+        (monitoringIntervalRef as any) = null;
+      }
+
       if (Platform.OS === 'web') {
+        // Detener stream de audio
+        if (audioStream) {
+          audioStream.getTracks().forEach(track => track.stop());
+          setAudioStream(null);
+        }
+        
+        // Cerrar contexto de audio
+        if (audioContext) {
+          await audioContext.close();
+          setAudioContext(null);
+        }
+
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
           mediaRecorder.stop();
-          mediaRecorder.stream.getTracks().forEach(track => track.stop());
           setMediaRecorder(null);
         }
       } else {
         if (recording) {
-          await recording.stopAndUnloadAsync();
-          await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-          const uri = recording.getURI();
-
-          if (uri && currentSession) {
-            const status = await recording.getStatusAsync();
-            const newRecording: AudioRecording = {
-              id: Date.now().toString(),
-              timestamp: new Date(),
-              uri,
-              duration: status.isLoaded ? status.durationMillis / 1000 : 0,
-            };
-
-            setCurrentSession({
-              ...currentSession,
-              audioRecordings: [...currentSession.audioRecordings, newRecording],
-            });
+          try {
+            await recording.stopAndUnloadAsync();
+            await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+          } catch (error) {
+            console.error('Error stopping recording:', error);
           }
-
           setRecording(null);
         }
       }
+
+      setIsRecordingNoise(false);
     } catch (error) {
       console.error('Failed to stop audio monitoring:', error);
     }
@@ -207,7 +387,10 @@ export const [SleepProvider, useSleep] = createContextHook(() => {
             body: 'Time to wake up at your optimal sleep cycle',
             sound: true,
           },
-          trigger: { seconds: Math.floor(trigger / 1000) },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: Math.floor(trigger / 1000),
+          },
         });
       }
     } catch (error) {

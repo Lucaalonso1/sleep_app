@@ -26,3 +26,30 @@ export interface SoundSettings {
   volume: number;
   selectedSound?: string;
 }
+
+export interface AudioRecording {
+  id: string;
+  timestamp: Date;
+  uri: string;
+  duration: number;
+  noiseLevel?: number;
+}
+
+export interface SleepSession {
+  id: string;
+  startTime: Date;
+  endTime?: Date;
+  duration?: number;
+  audioRecordings: AudioRecording[];
+  alarmTime?: Date;
+  sleepQuality?: number;
+  interruptions?: number;
+  deepSleepPercent?: number;
+  dreamJournal?: string;
+}
+
+export interface WakeTimeOption {
+  time: Date;
+  cycles: number;
+  label: string;
+}

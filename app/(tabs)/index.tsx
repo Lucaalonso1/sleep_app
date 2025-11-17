@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, Animated, Platform, Modal, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Moon, Sun, Clock, Bell, Plus, X, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSleep } from '../../contexts/SleepContext';
 import AnimatedTabScreen from '../../components/AnimatedTabScreen';
@@ -20,6 +21,12 @@ export default function HomeScreen() {
   const [showBedTimePicker, setShowBedTimePicker] = useState(false);
   const [showWakeTimePicker, setShowWakeTimePicker] = useState(false);
   const [glowAnim] = useState(new Animated.Value(0));
+  const [pulseDotAnim] = useState(new Animated.Value(1));
+  const [showAlarmModal, setShowAlarmModal] = useState(false);
+  const [alarmAnim] = useState(new Animated.Value(0));
+  const alarmSoundRef = useRef<Audio.Sound | null>(null);
+  const vibrateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const soundIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update bed time to current time every minute when not tracking
   useEffect(() => {
@@ -57,8 +64,25 @@ export default function HomeScreen() {
           }),
         ])
       ).start();
+
+      // Pulse animation for monitoring dot
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseDotAnim, {
+            toValue: 1.5,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseDotAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
     } else {
       pulseAnim.setValue(1);
+      pulseDotAnim.setValue(1);
     }
   }, [isTracking]);
 
@@ -84,6 +108,158 @@ export default function HomeScreen() {
     }
   }, [isTracking]);
 
+  // Define alarm functions before using them in useEffect
+  const playAlarmSound = useCallback(async () => {
+    try {
+      if (Platform.OS === 'web') {
+        // Create alarm tone using Web Audio API
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800; // Frequency in Hz
+        oscillator.type = 'sine';
+        gainNode.gain.value = 0.3;
+        
+        // Play beep pattern
+        oscillator.start();
+        setTimeout(() => {
+          oscillator.stop();
+          audioContext.close();
+        }, 300);
+        
+        // Repeat every second
+        soundIntervalRef.current = setInterval(() => {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 800;
+          osc.type = 'sine';
+          gain.gain.value = 0.3;
+          osc.start();
+          setTimeout(() => {
+            osc.stop();
+            ctx.close();
+          }, 300);
+        }, 1000);
+      } else {
+        // Use device notification sound for mobile
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error playing alarm sound:', error);
+    }
+  }, []);
+
+  const triggerAlarm = useCallback(async () => {
+    setShowAlarmModal(true);
+    
+    // Play alarm sound
+    await playAlarmSound();
+    
+    // Vibration pattern for alarm
+    if (Platform.OS !== 'web') {
+      // Initial strong vibration
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Continue vibrating every 2 seconds until dismissed
+      vibrateIntervalRef.current = setInterval(async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }, 2000);
+    }
+  }, [playAlarmSound]);
+
+  // Check alarm time and stop tracking when reached
+  useEffect(() => {
+    if (!isTracking || !currentSession?.alarmTime) return;
+
+    const checkAlarm = setInterval(() => {
+      const now = new Date();
+      const alarmTime = currentSession.alarmTime;
+      
+      if (alarmTime && now >= alarmTime) {
+        // Trigger alarm
+        triggerAlarm();
+        clearInterval(checkAlarm);
+      }
+    }, 1000); // Check every second
+
+    return () => clearInterval(checkAlarm);
+  }, [isTracking, currentSession?.alarmTime, triggerAlarm]);
+
+  // Alarm animation
+  useEffect(() => {
+    if (showAlarmModal) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(alarmAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(alarmAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      alarmAnim.setValue(0);
+    }
+  }, [showAlarmModal]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all intervals on unmount
+      if (soundIntervalRef.current) {
+        clearInterval(soundIntervalRef.current);
+      }
+      if (vibrateIntervalRef.current) {
+        clearInterval(vibrateIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleDismissAlarm = async () => {
+    // Clear sound interval
+    if (soundIntervalRef.current) {
+      clearInterval(soundIntervalRef.current);
+      soundIntervalRef.current = null;
+    }
+    
+    // Clear vibration interval
+    if (vibrateIntervalRef.current) {
+      clearInterval(vibrateIntervalRef.current);
+      vibrateIntervalRef.current = null;
+    }
+    
+    // Stop alarm sound if playing
+    if (alarmSoundRef.current) {
+      try {
+        await alarmSoundRef.current.stopAsync();
+        await alarmSoundRef.current.unloadAsync();
+        alarmSoundRef.current = null;
+      } catch (error) {
+        console.error('Error stopping alarm sound:', error);
+      }
+    }
+    
+    setShowAlarmModal(false);
+    await stopTracking();
+    setWakeTimeOptions([]);
+    setSelectedWakeTime(null);
+  };
+
   const handleStartStop = async () => {
     if (Platform.OS !== 'web') {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -92,6 +268,7 @@ export default function HomeScreen() {
     if (isTracking) {
       await stopTracking();
       setWakeTimeOptions([]);
+      setSelectedWakeTime(null);
     } else {
       await startTracking(selectedWakeTime || undefined);
     }
@@ -261,6 +438,36 @@ export default function HomeScreen() {
                       <Text style={styles.trackingSubtext}>
                         Comenzó a las {formatTime(currentSession.startTime)}
                       </Text>
+                      
+                      {/* Noise monitoring indicator */}
+                      <View style={styles.noiseMonitoringSection}>
+                        <View style={styles.noiseMonitoringIndicator}>
+                          <Animated.View 
+                            style={[
+                              styles.pulsingDot,
+                              { 
+                                transform: [{ scale: pulseDotAnim }],
+                                opacity: pulseDotAnim.interpolate({
+                                  inputRange: [1, 1.5],
+                                  outputRange: [1, 0.6]
+                                })
+                              }
+                            ]} 
+                          />
+                          <Text style={styles.noiseMonitoringText}>
+                            Monitoreando ruidos
+                          </Text>
+                        </View>
+                        {currentSession.audioRecordings.length > 0 && (
+                          <View style={styles.noiseCountBadge}>
+                            <Sparkles size={14} color={Colors.warning} />
+                            <Text style={styles.noiseCountText}>
+                              {currentSession.audioRecordings.length} {currentSession.audioRecordings.length === 1 ? 'ruido detectado' : 'ruidos detectados'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
                       {currentSession.alarmTime && (
                         <View style={styles.alarmBadge}>
                           <Bell size={16} color={Colors.warning} />
@@ -575,6 +782,72 @@ export default function HomeScreen() {
           </Modal>
         </>
       )}
+
+      {/* Alarm Modal */}
+      <Modal
+        visible={showAlarmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleDismissAlarm}
+      >
+        <View style={styles.alarmModalOverlay}>
+          <View style={styles.alarmModalContent}>
+            <LinearGradient
+              colors={[Colors.background, Colors.backgroundSecondary]}
+              style={styles.alarmGradient}
+            >
+              <Animated.View style={[styles.alarmIconContainer, {
+                transform: [{
+                  scale: alarmAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.15]
+                  })
+                }]
+              }]}>
+                <Sun size={80} color={Colors.accentLight} strokeWidth={2} />
+              </Animated.View>
+              
+              <Text style={styles.alarmTitle}>¡Es hora de despertar!</Text>
+              <Text style={styles.alarmSubtitle}>
+                {currentSession?.alarmTime ? `Tu alarma de las ${formatTime(currentSession.alarmTime)}` : 'Tu alarma está sonando'}
+              </Text>
+              
+              {currentSession && (
+                <View style={styles.alarmStats}>
+                  <View style={styles.alarmStatCard}>
+                    <Text style={styles.alarmStatLabel}>Tiempo dormido</Text>
+                    <Text style={styles.alarmStatValue}>{getElapsedTime()}</Text>
+                  </View>
+                  {currentSession.audioRecordings.length > 0 && (
+                    <View style={styles.alarmStatCard}>
+                      <Text style={styles.alarmStatLabel}>Ruidos detectados</Text>
+                      <Text style={styles.alarmStatValue}>{currentSession.audioRecordings.length}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.dismissAlarmButton}
+                onPress={handleDismissAlarm}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={[Colors.accent, Colors.accentLight]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dismissButtonGradient}
+                >
+                  <Sun size={24} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.dismissButtonText}>
+                    Buenos días
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
     </View>
     </AnimatedTabScreen>
   );
@@ -724,6 +997,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textTertiary,
   },
+  noiseMonitoringSection: {
+    marginTop: 20,
+    gap: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  noiseMonitoringIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.success + '15',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
+  },
+  pulsingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.success,
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  noiseMonitoringText: {
+    fontSize: 13,
+    color: Colors.success,
+    fontWeight: '600',
+  },
+  noiseCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: Colors.warning + '15',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.warning + '30',
+  },
+  noiseCountText: {
+    fontSize: 13,
+    color: Colors.warning,
+    fontWeight: '600',
+  },
   alarmBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -858,5 +1180,96 @@ const styles = StyleSheet.create({
   confirmButton: {
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  alarmModalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  alarmModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 32,
+    overflow: 'hidden',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  alarmGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  alarmIconContainer: {
+    marginBottom: 24,
+    padding: 20,
+    backgroundColor: Colors.accent + '20',
+    borderRadius: 100,
+  },
+  alarmTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  alarmSubtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  alarmStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+    width: '100%',
+  },
+  alarmStatCard: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  alarmStatLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  alarmStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.primaryLight,
+  },
+  dismissAlarmButton: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  dismissButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+  },
+  dismissButtonText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });

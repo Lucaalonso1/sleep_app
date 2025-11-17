@@ -56,6 +56,12 @@ export default function HistoryScreen() {
     return 'destructive';
   };
 
+  const getNoiseLevelColor = (noiseLevel: number) => {
+    if (noiseLevel < -40) return Colors.success; // Ruido bajo
+    if (noiseLevel < -30) return Colors.warning; // Ruido medio
+    return Colors.error; // Ruido alto
+  };
+
   const handleDelete = async (sessionId: string) => {
     if (Platform.OS !== 'web') {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -289,13 +295,23 @@ export default function HistoryScreen() {
                     {session.audioRecordings.length > 0 && (
                       <View style={styles.recordingsSection}>
                         <View style={styles.recordingsHeader}>
-                          <HistoryIcon size={16} color={Colors.accent} />
-                          <Text style={styles.recordingsTitle}>
-                            Grabaciones ({session.audioRecordings.length})
-                          </Text>
+                          <View style={styles.recordingsHeaderLeft}>
+                            <Activity size={18} color={Colors.accent} />
+                            <Text style={styles.recordingsTitle}>
+                              Ruidos detectados durante el sueño
+                            </Text>
+                          </View>
+                          <View style={styles.recordingsBadge}>
+                            <Text style={styles.recordingsBadgeText}>
+                              {session.audioRecordings.length}
+                            </Text>
+                          </View>
                         </View>
+                        <Text style={styles.recordingsSubtitle}>
+                          Toca para reproducir las grabaciones de ruido
+                        </Text>
                         <View style={styles.recordingsList}>
-                          {session.audioRecordings.map((recording: any) => (
+                          {session.audioRecordings.map((recording: any, index: number) => (
                             <Pressable
                               key={recording.id}
                               onPress={() => playAudio(recording.uri, recording.id)}
@@ -304,25 +320,55 @@ export default function HistoryScreen() {
                                 playingAudio === recording.id && styles.recordingItemActive
                               ]}
                             >
-                              <Play
-                                size={16}
-                                color={
-                                  playingAudio === recording.id
-                                    ? Colors.accent
-                                    : Colors.textSecondary
-                                }
-                                fill={
-                                  playingAudio === recording.id
-                                    ? Colors.accent
-                                    : 'transparent'
-                                }
-                              />
-                              <Text style={[
-                                styles.recordingTime,
-                                playingAudio === recording.id && styles.recordingTimeActive
+                              <View style={[
+                                styles.recordingPlayButton,
+                                playingAudio === recording.id && styles.recordingPlayButtonActive
                               ]}>
-                                {formatTime(recording.timestamp)}
-                              </Text>
+                                <Play
+                                  size={18}
+                                  color={
+                                    playingAudio === recording.id
+                                      ? Colors.accent
+                                      : Colors.textSecondary
+                                  }
+                                  fill={
+                                    playingAudio === recording.id
+                                      ? Colors.accent
+                                      : 'transparent'
+                                  }
+                                />
+                              </View>
+                              <View style={styles.recordingInfo}>
+                                <View style={styles.recordingInfoTop}>
+                                  <Text style={[
+                                    styles.recordingTime,
+                                    playingAudio === recording.id && styles.recordingTimeActive
+                                  ]}>
+                                    {formatTime(recording.timestamp)}
+                                  </Text>
+                                  {recording.noiseLevel !== undefined && (
+                                    <View style={[
+                                      styles.noiseLevelBadge,
+                                      { backgroundColor: getNoiseLevelColor(recording.noiseLevel) + '20' }
+                                    ]}>
+                                      <Text style={[
+                                        styles.noiseLevelText,
+                                        { color: getNoiseLevelColor(recording.noiseLevel) }
+                                      ]}>
+                                        {Math.round(recording.noiseLevel)} dB
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <View style={styles.recordingDetails}>
+                                  <Text style={styles.recordingNumber}>
+                                    Ruido #{index + 1}
+                                  </Text>
+                                  <Text style={styles.recordingDuration}>
+                                    {recording.duration ? `${Math.round(recording.duration)}s` : '15s'}
+                                  </Text>
+                                </View>
+                              </View>
                             </Pressable>
                           ))}
                         </View>
@@ -544,43 +590,132 @@ const styles = StyleSheet.create({
   },
   // Recordings Section
   recordingsSection: {
+    padding: 16,
+    backgroundColor: Colors.backgroundTertiary,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
     gap: 12,
   },
   recordingsHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+  },
+  recordingsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   recordingsTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  recordingsBadge: {
+    backgroundColor: Colors.accent + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.accent + '30',
+  },
+  recordingsBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.accent,
+  },
+  recordingsSubtitle: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: -4,
+  },
   recordingsList: {
-    gap: 8,
+    gap: 10,
   },
   recordingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     padding: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundTertiary,
+    borderRadius: 14,
+    backgroundColor: Colors.background,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   recordingItemActive: {
-    backgroundColor: Colors.accent + '15',
+    backgroundColor: Colors.accent + '10',
+    borderColor: Colors.accent,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recordingPlayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.backgroundTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  recordingPlayButtonActive: {
+    backgroundColor: Colors.accent + '20',
     borderColor: Colors.accent,
   },
+  recordingInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  recordingInfoTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   recordingTime: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
+    letterSpacing: -0.3,
   },
   recordingTimeActive: {
     color: Colors.accent,
+  },
+  noiseLevelBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  noiseLevelText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  recordingDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recordingNumber: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  recordingDuration: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    backgroundColor: Colors.backgroundTertiary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
 });
