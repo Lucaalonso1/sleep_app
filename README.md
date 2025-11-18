@@ -44,7 +44,6 @@ A beautiful and intelligent sleep tracking application built with React Native a
 <img width="386" height="733" alt="image (4)" src="https://github.com/user-attachments/assets/875b5015-acf8-4a1a-a53b-67fb23156b23" />
 <img width="389" height="734" alt="image (6)" src="https://github.com/user-attachments/assets/03795b6d-d578-4ac3-b0b0-43132ded9377" />
 <img width="388" height="733" alt="image (7)" src="https://github.com/user-attachments/assets/120d8a6f-c63e-4456-9e1a-058bcec53cf4" />
-<img width="388" height="733" alt="image" src="https://github.com/user-attachments/assets/4606694a-7f53-48ca-83c8-21d418b7e128" />
 
 
 ## 🚀 Getting Started
